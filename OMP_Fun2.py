@@ -14,9 +14,7 @@ def bspline_test_7d(x):
     if x.shape[1] != 7:
         raise ValueError("input must be M x 7 matrix")
 
-    valout = bspline_o2(x[:, [0, 2, 3]]) + bspline_o4(
-        x[:, [1, 4, 5, 6]]
-    )
+    valout = bspline_o2(x[:, [0, 2, 3]]) + bspline_o4(x[:, [1, 4, 5, 6]])
 
     return valout
 
