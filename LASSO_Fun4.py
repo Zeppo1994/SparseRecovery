@@ -69,9 +69,7 @@ def estimate_error(coeffs, M, D, N_MC=1_000_000):
     )
 
     A_op = SQ_LASSO.Tchebychev_eval(samples_MC, indices, pre_comp, D)
-    return torch.sqrt(
-        torch.sum((A_op(coeffs) - values_MC) ** 2) / N_MC
-    )
+    return torch.sqrt(torch.sum((A_op(coeffs) - values_MC) ** 2) / N_MC)
 
 
 m_values = [1000, 5000, 10000, 20000, 50000, 100000, 300000, 600000]  #

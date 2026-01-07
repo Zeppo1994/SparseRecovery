@@ -150,17 +150,19 @@ def generate_data(N, M, D, dtype=torch.float, device="cuda"):
     # define D-dimensional array of frequencies in [-M, M]^D based on hyperbolic cross density
     def hyp_cross(d, M):
         if d == 1:
-            return [[k] for k in range(-M, M + 1)]
-        out = []
-        for k in range(-M, M + 1):
-            for temp in hyp_cross(d - 1, int(M / max(1, abs(k)))):
-                out.append([k] + temp)
-        return out
+            return np.arange(-M, M + 1, dtype=np.int32).reshape(-1, 1)
 
-    # frequencies in [-M, M]^D scaled by -2π
-    frequencies = torch.FloatTensor(hyp_cross(D, M)).to(
-        dtype=torch.double, device=device_id
-    )
+        results = []
+        for k in range(-M, M + 1):
+            sub_result = hyp_cross(d - 1, int(M / max(1, abs(k))))
+            extended = np.empty((len(sub_result), d), dtype=np.int32)
+            extended[:, 0] = k
+            extended[:, 1:] = sub_result
+            results.append(extended)
+    
+        return np.vstack(results)
+
+    frequencies = torch.from_numpy(hyp_cross(D, M)).to(dtype=torch.double, device=device)
     M_f = frequencies.size(0)
 
     # compute truncation error
@@ -170,10 +172,8 @@ def generate_data(N, M, D, dtype=torch.float, device="cuda"):
     trunc_error = torch.sqrt(1 - torch.sum(coeffs_gt[:, 0] ** 2))
 
     # cast to chosen dtype/device
-    frequencies = frequencies.to(dtype=dtype)
+    frequencies = -2 * math.pi * frequencies.to(dtype=dtype)
     coeffs_gt = coeffs_gt.to(dtype=dtype, device=device_id)
-
-    frequencies = -2 * math.pi * torch.round(frequencies)
 
     # since we approximate real functions, we can drop half of the Fourier coeffcients
     frequencies_half = frequencies[: math.ceil(frequencies.size(0) / 2), :]
@@ -206,6 +206,8 @@ for m in m_values:
                 values,
                 frequencies_half,
                 lstsq_rec=False,
+                beta=1.5,
+                alpha=0.1,
                 tol=1e-5,
                 restarts=11,
             )
@@ -225,15 +227,16 @@ for m in m_values:
         ]
 
         error = (trunc_error + torch.linalg.norm(coeffs_gt - coeffs_rec)).item()
-        results.append([m, J, error])
+        duality_gap = vals[-1] - vals_dual[-1]
+        results.append([m, J, error, duality_gap])
 
         # Convert to numpy array and save
         results_array = np.array(results)
         np.savetxt(
             "results/results_lasso_fun2.txt",
             results_array,
-            header="m J error",
-            fmt=["%d", "%d", "%.6e"],
+            header="m J error duality_gap",
+            fmt=["%d", "%d", "%.6e", "%.6e"],
         )
 
-        print(f"Completed m={m}, J={J}, error={error:.6e}")
+        print(f"Completed m={m}, J={J}, error={error:.6e}, duality_gap={duality_gap:.6e}")

@@ -148,17 +148,19 @@ def generate_data(N, M, D, dtype=torch.float, device="cuda"):
     # define D-dimensional array of frequencies in [-M, M]^D based on hyperbolic cross density
     def hyp_cross(d, M):
         if d == 1:
-            return [[k] for k in range(-M, M + 1)]
-        out = []
-        for k in range(-M, M + 1):
-            for temp in hyp_cross(d - 1, int(M / max(1, abs(k)))):
-                out.append([k] + temp)
-        return out
+            return np.arange(-M, M + 1, dtype=np.int32).reshape(-1, 1)
 
-    # frequencies in [-M, M]^D scaled by -2π
-    frequencies = torch.FloatTensor(hyp_cross(D, M)).to(
-        dtype=torch.double, device=device_id
-    )
+        results = []
+        for k in range(-M, M + 1):
+            sub_result = hyp_cross(d - 1, int(M / max(1, abs(k))))
+            extended = np.empty((len(sub_result), d), dtype=np.int32)
+            extended[:, 0] = k
+            extended[:, 1:] = sub_result
+            results.append(extended)
+    
+        return np.vstack(results)
+
+    frequencies = torch.from_numpy(hyp_cross(D, M)).to(dtype=torch.double, device=device)
     M_f = frequencies.size(0)
 
     # compute truncation error
@@ -168,10 +170,8 @@ def generate_data(N, M, D, dtype=torch.float, device="cuda"):
     trunc_error = torch.sqrt(1 - torch.sum(coeffs_gt[:, 0] ** 2))
 
     # cast to chosen dtype/device
-    frequencies = frequencies.to(dtype=dtype)
+    frequencies = -2 * math.pi * frequencies.to(dtype=dtype)
     coeffs_gt = coeffs_gt.to(dtype=dtype, device=device_id)
-
-    frequencies = -2 * math.pi * torch.round(frequencies)
 
     # since we approximate real functions, we can drop half of the Fourier coeffcients
     frequencies_half = frequencies[: math.ceil(frequencies.size(0) / 2), :]

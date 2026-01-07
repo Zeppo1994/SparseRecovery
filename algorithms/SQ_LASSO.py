@@ -122,7 +122,67 @@ def Reconstruction_Tchebychev(
 
     # run prim dual algorithm with restarts
     rec, vals, vals_dual = PD_algorithms.restart_pd_rLASSO(
-        s0, A, AT, b, lam=lam_est, tol=1e-5, restarts=restarts, beta=beta, alpha=alpha
+        s0, A, AT, b, lam=lam_est, tol=tol, restarts=restarts, beta=beta, alpha=alpha
+    )
+    residuals = torch.zeros((2,), dtype=dtype, device=device)
+    residuals[0] = torch.linalg.norm(A(rec) - b)
+    if lstsq_rec:
+        residuals[1] = torch.linalg.norm(A(lsr_rec) - b)
+    return rec, vals, vals_dual, lsr_rec, residuals
+
+
+def Reconstruction_Cosine(
+    samples,
+    values,
+    indices,
+    restarts=9,
+    tol=1e-5,
+    beta=3.0,
+    alpha=0.3,
+    lstsq_rec=False,
+):
+    D = samples.size(1)  # dimension of sample points
+    N = samples.size(0)  # number of sample points
+    dtype = samples.dtype
+    device = samples.device
+
+    # precompute normalization coefficients for computational efficiency
+    norm_coeffs = math.sqrt(2) ** ((indices.clamp(0, 1) - 1).sum(-1, keepdim=True)).to(
+        dtype=dtype
+    )
+
+    A_op = Cosine_eval(samples, indices, norm_coeffs, D)
+    AT_op = aCosine_eval(samples, indices, norm_coeffs, D)
+
+    def A(x):
+        return A_op(x) / math.sqrt(N)
+
+    def AT(y):
+        return AT_op(y) / math.sqrt(N)
+
+    b = values / math.sqrt(N)
+
+    if lstsq_rec:
+        # compute least squares reconstruction, 1/gamma is Tikhonov regularization parameter
+        lsr_rec = least_squares(
+            A,
+            AT,
+            b,
+            solver="lsqr",
+            gamma=1e4,
+            tol=1e-5,
+            max_iter=2000,
+            parallel_dim=-1,
+        )
+    else:
+        lsr_rec = None
+
+    lam_est = 1.0 / math.sqrt(N)
+    s0 = torch.zeros_like(AT(b), requires_grad=False)
+
+    # run prim dual algorithm with restarts
+    rec, vals, vals_dual = PD_algorithms.restart_pd_rLASSO(
+        s0, A, AT, b, lam=lam_est, tol=tol, restarts=restarts, beta=beta, alpha=alpha
     )
     residuals = torch.zeros((2,), dtype=dtype, device=device)
     residuals[0] = torch.linalg.norm(A(rec) - b)
@@ -158,6 +218,36 @@ def Tchebychev_eval(p, k, pre, D):
     tmp = (k_j[:, :, 0] * p_acos_i[:, :, 0]).cos()
     for d in range(D - 1):
         tmp *= (k_j[:, :, d + 1] * p_acos_i[:, :, d + 1]).cos()
+    return (pre_j * tmp * x_j).sum_reduction(dim=1, use_double_acc=True)
+
+
+def aCosine_eval(p, k, pre, D):
+    # Adjoint Cosine transform (multidimensional)
+    # x : tensor of type torch.Tensor and shape (N,1), real valued
+    # p, k : tensors of type torch.Tensor and shapes (N,D), (M,D)
+    k_i = Vi(math.pi * k)  # (M, 1, D) LazyTensor
+    pre_i = Vi(pre)  # (M, 1, 1) LazyTensor
+    p_j = Vj(p)  # (N, 1, D) LazyTensor
+    x_j = Vj(0, 1)  # (1, N, 1) LazyTensor
+
+    tmp = (k_i[:, :, 0] * (p_j[:, :, 0] + 1) / 2).cos()
+    for d in range(D - 1):
+        tmp *= (k_i[:, :, d + 1] * (p_j[:, :, d + 1] + 1) / 2).cos()
+    return (pre_i * tmp * x_j).sum_reduction(dim=1, use_double_acc=True)
+
+
+def Cosine_eval(p, k, pre, D):
+    # Cosine transform (multidimensional)
+    # x : tensor of type torch.Tensor and shape (N,1), real valued
+    # p, k : tensors of type torch.Tensor and shapes (N,D), (M,D)
+    k_j = Vj(math.pi * k)  # (1, M, D) LazyTensor
+    pre_j = Vj(pre)  # (1, M, 1) LazyTensor
+    p_i = Vi(p)  # (N, 1, D) LazyTensor
+    x_j = Vj(0, 1)  # (1, M, 1) LazyTensor
+
+    tmp = (k_j[:, :, 0] * (p_i[:, :, 0] + 1) / 2).cos()
+    for d in range(D - 1):
+        tmp *= (k_j[:, :, d + 1] * (p_i[:, :, d + 1] + 1) / 2).cos()
     return (pre_j * tmp * x_j).sum_reduction(dim=1, use_double_acc=True)
 
 

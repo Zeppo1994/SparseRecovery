@@ -14,22 +14,20 @@ def generate_data(N, M, D, dtype=torch.float, device="cuda"):
     # define D-dimensional array of frequencies in [-M, M]^D based on hyperbolic cross density
     def hyp_cross(d, M):
         if d == 1:
-            return [[k] for k in range(-M, M + 1)]
-        out = []
+            return np.arange(-M, M + 1, dtype=np.int32).reshape(-1, 1)
+
+        results = []
         for k in range(-M, M + 1):
-            for temp in hyp_cross(d - 1, int(M / max(1, abs(k)))):
-                out.append([k] + temp)
-        return out
+            sub_result = hyp_cross(d - 1, int(M / max(1, abs(k))))
+            extended = np.empty((len(sub_result), d), dtype=np.int32)
+            extended[:, 0] = k
+            extended[:, 1:] = sub_result
+            results.append(extended)
+    
+        return np.vstack(results)
 
     # frequencies in [-M, M]^D scaled by -2π
-    frequencies = (
-        -2
-        * math.pi
-        * torch.round(
-            torch.FloatTensor(hyp_cross(D, M)).to(dtype=torch.double, device=device_id)
-        )
-    )
-    frequencies.requires_grad = False
+    frequencies = -2 * math.pi * torch.from_numpy(hyp_cross(D, M)).to(dtype=torch.double, device=device)
     M_f = frequencies.size(0)
 
     # function in H^3/2 with known Fourier coefficients
