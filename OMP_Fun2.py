@@ -157,10 +157,12 @@ def generate_data(N, M, D, dtype=torch.float, device="cuda"):
             extended[:, 0] = k
             extended[:, 1:] = sub_result
             results.append(extended)
-    
+
         return np.vstack(results)
 
-    frequencies = torch.from_numpy(hyp_cross(D, M)).to(dtype=torch.double, device=device)
+    frequencies = torch.from_numpy(hyp_cross(D, M)).to(
+        dtype=torch.double, device=device
+    )
     M_f = frequencies.size(0)
 
     # compute truncation error

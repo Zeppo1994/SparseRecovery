@@ -159,10 +159,12 @@ def generate_data(N, M, D, dtype=torch.float, device="cuda"):
             extended[:, 0] = k
             extended[:, 1:] = sub_result
             results.append(extended)
-    
+
         return np.vstack(results)
 
-    frequencies = torch.from_numpy(hyp_cross(D, M)).to(dtype=torch.double, device=device)
+    frequencies = torch.from_numpy(hyp_cross(D, M)).to(
+        dtype=torch.double, device=device
+    )
     M_f = frequencies.size(0)
 
     # compute truncation error
@@ -239,4 +241,6 @@ for m in m_values:
             fmt=["%d", "%d", "%.6e", "%.6e"],
         )
 
-        print(f"Completed m={m}, J={J}, error={error:.6e}, duality_gap={duality_gap:.6e}")
+        print(
+            f"Completed m={m}, J={J}, error={error:.6e}, duality_gap={duality_gap:.6e}"
+        )

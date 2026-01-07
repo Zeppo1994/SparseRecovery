@@ -1,37 +1,35 @@
 import math
 import torch
 import numpy as np
-import algorithms.OMP as OMP
+import algorithms.SQ_LASSO as SQ_LASSO
 
 dtype = torch.float
 device_id = "cuda"
 
 
 def generate_data(N, M, D, dtype=torch.double, device="cuda"):
-    # sample D-dimensional array of random Tchebychev points in [-1,1]^D
-    samples = math.pi * (
-        torch.rand(N, D, dtype=dtype, device=device, requires_grad=False) - 0.5
-    )
-    samples = samples.tan()
-    samples = samples / torch.sqrt(samples**2 + 1)
+    # sample D-dimensional array of random points in [-1,1]^D
+    samples = 2 * torch.rand(N, D, dtype=dtype, device=device, requires_grad=False) - 1
 
     # define D-dimensional array of indices in [0, R]^D based on hyperbolic cross density
     def hyp_cross(dim, R):
         if dim == 1:
-            return np.arange(0, R + 1, dtype=np.int32).reshape(-1, 1)
+            return [[k] for k in range(0, R + 1)]
         out = []
-        for k in range(0, R + 1):
-            prod_val = max(1, abs(k))
-            R_reduced = R // prod_val
-            sub_result = hyp_cross(dim - 1, R_reduced)
-            extended = np.empty((len(sub_result), dim), dtype=np.int32)
-            extended[:, 0] = k  # First dimension value (broadcast to all rows)
-            extended[:, 1:] = sub_result  # Remaining dimensions from recursion
-            out.append(extended)
-        return np.vstack(out)
+        for kk in hyp_cross(dim - 1, R):
+            prod_val = 1
+            for x in kk:
+                prod_val *= max([1, abs(x)])
+            rk = R // prod_val
+            for r in range(0, rk + 1):
+                out.append(kk + [r])
+        return out
 
     # create hyperbolic cross indices
-    indices= torch.from_numpy(hyp_cross(D, M)).to(dtype=torch.double, device=device)
+    indices = torch.round(
+        torch.FloatTensor(hyp_cross(D, M)).to(dtype=torch.double, device=device)
+    )
+    indices.requires_grad = False
 
     # function in H^3/2 with known Fourier coefficients
     def fun3(x):
@@ -62,14 +60,12 @@ def estimate_error(coeffs, M, D, N_MC=1_000_000):
     )
 
     # precompute normalization coefficients for computational efficiency
-    pre_comp = math.sqrt(2) ** (indices.clamp(0, 1).sum(-1, keepdim=True)).to(
+    pre_comp = math.sqrt(2) ** ((indices.clamp(0, 1) - 1).sum(-1, keepdim=True)).to(
         dtype=dtype
     )
 
-    A_op = OMP.Tchebychev_eval(torch.acos(samples_MC), D)
-    return torch.sqrt(
-        torch.sum((A_op(coeffs, indices, pre_comp) - values_MC) ** 2) / N_MC
-    )
+    A_op = SQ_LASSO.Cosine_eval(samples_MC, indices, pre_comp, D)
+    return torch.sqrt(torch.sum((A_op(coeffs) - values_MC) ** 2) / N_MC)
 
 
 m_values = [1000, 5000, 10000, 20000, 50000, 100000, 300000, 600000]  #
@@ -81,13 +77,17 @@ for m in m_values:
     for J in J_values:
         indices, samples, values = generate_data(m, J, 6, device=device_id, dtype=dtype)
 
-        coeffs_rec, coeffs_lsr_rec, residuals = OMP.Tchebychev(
-            samples,
-            values,
-            indices,
-            num_iters=20000,
-            tol=1e-4,
+        coeffs_rec, vals, vals_dual, coeffs_lsr_rec, residuals = (
+            SQ_LASSO.Reconstruction_Cosine(
+                samples,
+                values,
+                indices,
+                lstsq_rec=False,
+                tol=1e-5,
+                restarts=11,
+            )
         )
+        duality_gap = vals[-1] - vals_dual[-1]
 
         # Run 5 times and collect errors
         errors = []
@@ -99,15 +99,15 @@ for m in m_values:
         error_mean = np.mean(errors)
         error_std = np.std(errors, ddof=1)  # ddof=1 for sample std
 
-        results.append([m, J, error_mean, error_std])
+        results.append([m, J, error_mean, error_std, duality_gap])
         # Convert to numpy array and save
         results_array = np.array(results)
         np.savetxt(
-            "results/results_omp_fun4.txt",
+            "results/results_lasso_cos_fun4.txt",
             results_array,
-            header="m J error_mean error_std",
-            fmt=["%d", "%d", "%.6e", "%.6e"],
+            header="m J error_mean error_std duality_gap",
+            fmt=["%d", "%d", "%.6e", "%.6e", "%.6e"],
         )
         print(
-            f"Completed m={m}, J={J}, error_mean={error_mean:.6e}, error_std={error_std:.6e}"
+            f"Completed m={m}, J={J}, error_mean={error_mean:.6e}, error_std={error_std:.6e}, duality_gap={duality_gap:.6e}"
         )

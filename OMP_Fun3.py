@@ -18,22 +18,20 @@ def generate_data(N, M, D, dtype=torch.double, device="cuda"):
     # define D-dimensional array of indices in [0, R]^D based on hyperbolic cross density
     def hyp_cross(dim, R):
         if dim == 1:
-            return [[k] for k in range(0, R + 1)]
+            return np.arange(0, R + 1, dtype=np.int32).reshape(-1, 1)
         out = []
-        for kk in hyp_cross(dim - 1, R):
-            prod_val = 1
-            for x in kk:
-                prod_val *= max([1, abs(x)])
-            rk = R // prod_val
-            for r in range(0, rk + 1):
-                out.append(kk + [r])
-        return out
+        for k in range(0, R + 1):
+            prod_val = max(1, abs(k))
+            R_reduced = R // prod_val
+            sub_result = hyp_cross(dim - 1, R_reduced)
+            extended = np.empty((len(sub_result), dim), dtype=np.int32)
+            extended[:, 0] = k  # First dimension value (broadcast to all rows)
+            extended[:, 1:] = sub_result  # Remaining dimensions from recursion
+            out.append(extended)
+        return np.vstack(out)
 
     # create hyperbolic cross indices
-    indices = torch.round(
-        torch.FloatTensor(hyp_cross(D, M)).to(dtype=torch.double, device=device)
-    )
-    indices.requires_grad = False
+    indices= torch.from_numpy(hyp_cross(D, M)).to(dtype=torch.double, device=device)
 
     # function in H^3/2 with known Fourier coefficients
     def fun2(x):

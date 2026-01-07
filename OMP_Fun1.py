@@ -23,11 +23,15 @@ def generate_data(N, M, D, dtype=torch.float, device="cuda"):
             extended[:, 0] = k
             extended[:, 1:] = sub_result
             results.append(extended)
-    
+
         return np.vstack(results)
 
     # frequencies in [-M, M]^D scaled by -2π
-    frequencies = -2 * math.pi * torch.from_numpy(hyp_cross(D, M)).to(dtype=torch.double, device=device)
+    frequencies = (
+        -2
+        * math.pi
+        * torch.from_numpy(hyp_cross(D, M)).to(dtype=torch.double, device=device)
+    )
     M_f = frequencies.size(0)
 
     # function in H^3/2 with known Fourier coefficients
