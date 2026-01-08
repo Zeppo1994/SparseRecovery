@@ -31,7 +31,7 @@ def generate_data(N, M, D, dtype=torch.double, device="cuda"):
         return np.vstack(out)
 
     # create hyperbolic cross indices
-    indices= torch.from_numpy(hyp_cross(D, M)).to(dtype=torch.double, device=device)
+    indices = torch.from_numpy(hyp_cross(D, M)).to(dtype=torch.double, device=device)
 
     # function in H^3/2 with known Fourier coefficients
     def fun2(x):

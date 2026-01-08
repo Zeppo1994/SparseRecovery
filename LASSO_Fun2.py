@@ -210,6 +210,7 @@ for m in m_values:
                 lstsq_rec=False,
                 beta=1.5,
                 alpha=0.1,
+                lam_est=2.0,
                 tol=1e-5,
                 restarts=11,
             )

@@ -13,6 +13,7 @@ def Reconstruction_Fourier(
     tol=1e-5,
     beta=2.0,
     alpha=1.0,
+    lam_est=1.0,
     lstsq_rec=False,
 ):
     N = samples.size(0)  # number of sample points
@@ -45,7 +46,7 @@ def Reconstruction_Fourier(
     else:
         lsr_rec = None
 
-    lam_est = 1.0 / math.sqrt(N)
+    lam_est = lam_est / math.sqrt(N)
     s0 = torch.zeros_like(AT(b), requires_grad=False)
 
     # run prim dual algorithm with restarts
@@ -67,6 +68,7 @@ def Reconstruction_Tchebychev(
     tol=1e-5,
     beta=3.0,
     alpha=0.3,
+    lam_est=1.0,
     tensor=False,
     lstsq_rec=False,
 ):
@@ -117,7 +119,7 @@ def Reconstruction_Tchebychev(
     else:
         lsr_rec = None
 
-    lam_est = 1.0 / math.sqrt(N)
+    lam_est = lam_est / math.sqrt(N)
     s0 = torch.zeros_like(AT(b), requires_grad=False)
 
     # run prim dual algorithm with restarts
@@ -139,6 +141,7 @@ def Reconstruction_Cosine(
     tol=1e-5,
     beta=3.0,
     alpha=0.3,
+    lam_est=1.0,
     lstsq_rec=False,
 ):
     D = samples.size(1)  # dimension of sample points
@@ -177,7 +180,7 @@ def Reconstruction_Cosine(
     else:
         lsr_rec = None
 
-    lam_est = 1.0 / math.sqrt(N)
+    lam_est = lam_est / math.sqrt(N)
     s0 = torch.zeros_like(AT(b), requires_grad=False)
 
     # run prim dual algorithm with restarts

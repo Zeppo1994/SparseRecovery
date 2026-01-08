@@ -84,6 +84,7 @@ for m in m_values:
                 indices,
                 lstsq_rec=False,
                 tol=1e-5,
+                lam_est=0.5,
                 restarts=11,
             )
         )
