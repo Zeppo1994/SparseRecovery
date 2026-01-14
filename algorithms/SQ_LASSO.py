@@ -230,12 +230,12 @@ def aCosine_eval(p, k, pre, D):
     # p, k : tensors of type torch.Tensor and shapes (N,D), (M,D)
     k_i = Vi(math.pi * k)  # (M, 1, D) LazyTensor
     pre_i = Vi(pre)  # (M, 1, 1) LazyTensor
-    p_j = Vj(p)  # (N, 1, D) LazyTensor
+    p_j = Vj((p + 1) / 2)  # (N, 1, D) LazyTensor
     x_j = Vj(0, 1)  # (1, N, 1) LazyTensor
 
-    tmp = (k_i[:, :, 0] * (p_j[:, :, 0] + 1) / 2).cos()
+    tmp = (k_i[:, :, 0] * p_j[:, :, 0]).cos()
     for d in range(D - 1):
-        tmp *= (k_i[:, :, d + 1] * (p_j[:, :, d + 1] + 1) / 2).cos()
+        tmp *= (k_i[:, :, d + 1] * p_j[:, :, d + 1]).cos()
     return (pre_i * tmp * x_j).sum_reduction(dim=1, use_double_acc=True)
 
 
@@ -245,12 +245,12 @@ def Cosine_eval(p, k, pre, D):
     # p, k : tensors of type torch.Tensor and shapes (N,D), (M,D)
     k_j = Vj(math.pi * k)  # (1, M, D) LazyTensor
     pre_j = Vj(pre)  # (1, M, 1) LazyTensor
-    p_i = Vi(p)  # (N, 1, D) LazyTensor
+    p_i = Vi((p + 1) / 2)  # (N, 1, D) LazyTensor
     x_j = Vj(0, 1)  # (1, M, 1) LazyTensor
 
-    tmp = (k_j[:, :, 0] * (p_i[:, :, 0] + 1) / 2).cos()
+    tmp = (k_j[:, :, 0] * p_i[:, :, 0]).cos()
     for d in range(D - 1):
-        tmp *= (k_j[:, :, d + 1] * (p_i[:, :, d + 1] + 1) / 2).cos()
+        tmp *= (k_j[:, :, d + 1] * p_i[:, :, d + 1]).cos()
     return (pre_j * tmp * x_j).sum_reduction(dim=1, use_double_acc=True)
 
 

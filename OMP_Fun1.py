@@ -86,7 +86,8 @@ def generate_data(N, M, D, dtype=torch.float, device="cuda"):
 
 
 m_values = [1000, 5000, 10000, 50000, 100000, 300000, 600000]
-J_values = [5, 8, 20, 30, 60, 135]
+# m_values = [1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000, 2048000]
+J_values = [5, 8, 20, 30, 60, 135]  # 145
 D = 5
 
 results = []
@@ -101,7 +102,7 @@ for m in m_values:
             samples,
             values,
             frequencies_half,
-            num_iters=20000,
+            num_iters=20000,  # 30k plot, 20k table
             lstsq_rec=False,
         )
 

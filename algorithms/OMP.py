@@ -167,6 +167,85 @@ def Tchebychev(samples, values, indices, num_iters=5000, tol=1e-4, lstsq_rec=Fal
     return rec, lsr_rec, residuals
 
 
+def Cosine(samples, values, indices, num_iters=5000, tol=1e-4, lstsq_rec=False):
+    D = samples.size(1)  # dimension of sample points
+    N = samples.size(0)  # number of sample points
+    dtype = samples.dtype
+    device = samples.device
+
+    # precompute normalization coefficients for computational efficiency
+    norm_coeffs = math.sqrt(2) ** ((indices.clamp(0, 1) - 1).sum(-1, keepdim=True)).to(
+        dtype=dtype
+    )
+
+    A_handle = Cosine_eval(samples, D)
+    AT_handle = aCosine_eval(samples, D)
+
+    def A(x, mask_indices=None):
+        if mask_indices == None:
+            f = indices
+            pre = norm_coeffs
+        else:
+            f = indices[mask_indices]
+            pre = norm_coeffs[mask_indices]
+        return A_handle(x, f, pre)
+
+    def AT(x, mask_indices=None):
+        if mask_indices == None:
+            f = indices
+            pre = norm_coeffs
+        else:
+            f = indices[mask_indices]
+            pre = norm_coeffs[mask_indices]
+        return AT_handle(x, f, pre)
+
+    def col_extractor(samples_acos, indices, max_ind):
+        # build complex matrix for least squares problem explicitly
+        mat = norm_coeffs[max_ind, 0] * torch.cos(
+            math.pi
+            * indices[max_ind, :].to(torch.double)
+            * (samples.to(torch.double) + 1)
+            / 2
+        ).prod(-1)
+        return mat[:, None].to(dtype)
+
+    b = values
+    normalization = torch.sqrt(normalization_Cosine(samples, indices, norm_coeffs, D))
+
+    if lstsq_rec:
+        # compute least squares reconstruction, 1/gamma is Tikhonov regularization parameter
+        lsr_rec = least_squares(
+            A,
+            AT,
+            b,
+            solver="lsqr",
+            gamma=2e5,
+            tol=1e-5,
+            max_iter=2000,
+            parallel_dim=-1,
+        )
+    else:
+        lsr_rec = None
+
+    # run OMP reconstruction
+    rec = OMP(
+        col_extractor,
+        A,
+        AT,
+        normalization,
+        b,
+        indices,
+        samples,
+        num_iters=num_iters,
+        tol=tol,
+    )
+    residuals = torch.zeros((2,), dtype=dtype, device=device)
+    residuals[0] = torch.linalg.norm(A(rec) - b) / math.sqrt(N)
+    if lstsq_rec:
+        residuals[1] = torch.linalg.norm(A(lsr_rec) - b) / math.sqrt(N)
+    return rec, lsr_rec, residuals
+
+
 def OMP(col_extractor, A, AT, normalization, b, f, p, num_iters=1500, tol=1e-5):
     device = p.device
     dtype = p.dtype
@@ -300,4 +379,47 @@ def normalization_Techebychev(p_acos, k, pre, D):
     tmp = (k_i[:, :, 0] * p_acos_j[:, :, 0]).cos()
     for d in range(D - 1):
         tmp *= (k_i[:, :, d + 1] * p_acos_j[:, :, d + 1]).cos()
+    return ((pre_i * tmp) ** 2).sum_reduction(dim=1, use_double_acc=True)
+
+
+def aCosine_eval(p, D):
+    # Adjoint Cosine transform (multidimensional)
+    # x : tensor of type torch.Tensor and shape (N,1), real valued
+    # p, k : tensors of type torch.Tensor and shapes (N,D), (M,D)
+    k_i = Vi(1, D)  # (M, 1, D) LazyTensor
+    k_i = math.pi * k_i
+    pre_i = Vi(2, 1)  # (M, 1, 1) LazyTensor
+    p_j = Vj((p + 1) / 2)  # (N, 1, D) LazyTensor
+    x_j = Vj(0, 1)  # (1, N, 1) LazyTensor
+
+    tmp = (k_i[:, :, 0] * p_j[:, :, 0]).cos()
+    for d in range(D - 1):
+        tmp *= (k_i[:, :, d + 1] * p_j[:, :, d + 1]).cos()
+    return (pre_i * tmp * x_j).sum_reduction(dim=1, use_double_acc=True)
+
+
+def Cosine_eval(p, D):
+    # Cosine transform (multidimensional)
+    # x : tensor of type torch.Tensor and shape (N,1), real valued
+    # p, k : tensors of type torch.Tensor and shapes (N,D), (M,D)
+    k_j = Vj(1, D)  # (1, M, D) LazyTensor
+    k_j = math.pi * k_j
+    pre_j = Vj(2, 1)  # (1, M, 1) LazyTensor
+    p_i = Vi((p + 1) / 2)  # (N, 1, D) LazyTensor
+    x_j = Vj(0, 1)  # (1, M, 1) LazyTensor
+
+    tmp = (k_j[:, :, 0] * p_i[:, :, 0]).cos()
+    for d in range(D - 1):
+        tmp *= (k_j[:, :, d + 1] * p_i[:, :, d + 1]).cos()
+    return (pre_j * tmp * x_j).sum_reduction(dim=1, use_double_acc=True)
+
+
+def normalization_Cosine(p, k, pre, D):
+    # normalization of matrix columns
+    k_i = Vi(math.pi * k)  # (M, 1, D) LazyTensor
+    pre_i = Vi(pre)  # (M, 1, 1) LazyTensor
+    p_j = Vj((p + 1) / 2)  # (N, 1, D) LazyTensor
+    tmp = (k_i[:, :, 0] * p_j[:, :, 0]).cos()
+    for d in range(D - 1):
+        tmp *= (k_i[:, :, d + 1] * p_j[:, :, d + 1]).cos()
     return ((pre_i * tmp) ** 2).sum_reduction(dim=1, use_double_acc=True)

@@ -113,6 +113,7 @@ def generate_data(N, M, D, dtype=torch.double, device="cuda"):
 
 
 m_values = [1000, 5000, 10000, 50000, 100000, 200000]  #
+# m_values = [4000, 8000, 16000, 32000, 64000, 128000, 256000]
 J_values = [5, 10, 20, 30, 50, 100]  #
 
 results = []
@@ -127,7 +128,7 @@ for m in m_values:
             samples,
             values,
             indices,
-            num_iters=20000,
+            num_iters=20000,  # 30k plot, 20k table
             tol=1e-4,
         )
 

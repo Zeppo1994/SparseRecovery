@@ -112,8 +112,9 @@ def generate_data(N, M, D, dtype=torch.double, device="cuda"):
     return indices, samples, values, coeffs_gt, trunc_error
 
 
-m_values = [1000, 5000, 10000, 50000, 100000, 200000]  #
-J_values = [5, 10, 20, 30, 50, 100]  #
+m_values = [1000, 5000, 10000, 50000, 100000, 200000]
+# m_values = [4000, 8000, 16000, 32000, 64000, 128000, 256000]
+J_values = [5, 10, 20, 30, 50, 100]  # 100
 
 results = []
 

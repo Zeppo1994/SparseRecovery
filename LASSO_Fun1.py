@@ -85,8 +85,9 @@ def generate_data(N, M, D, dtype=torch.float, device="cuda"):
     return frequencies, frequencies_half, samples, values, coeffs_gt, trunc_error
 
 
-m_values = [1000, 5000, 10000, 50000, 100000, 300000, 600000]  #
-J_values = [5, 8, 20, 30, 60, 135]  #
+m_values = [1000, 5000, 10000, 50000, 100000, 300000, 600000]
+# m_values = [1000, 2000, 4000, 8000, 16000, 32000, 64000, 128000, 256000, 512000, 1024000, 2048000]
+J_values = [5, 8, 20, 30, 60, 135]  # 145
 D = 5
 
 results = []
