@@ -49,7 +49,7 @@ If you use this code in your research, please cite:
 ```bibtex
 @misc{sparserecovery2025,
   title={High-dimensional sparse recovery from function samples: Decoders, guarantees and instance optimality},
-  author={[Authors]},
+  author={Moritz Moeller, Sebastian Neumayer, Kateryna Pozharska, Tizian Sommerfeld, Tino Ullrich},
   year={2025},
   eprint={2503.16209},
   archivePrefix={arXiv}
