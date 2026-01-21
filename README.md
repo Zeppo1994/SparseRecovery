@@ -59,13 +59,10 @@ If you use this code in your research, please cite:
 ## Requirements
 
 - Python 3.x
+- Pytorch
 - NumPy
 - SciPy
-- Jupyter (for notebooks)
 - Pykeops
 - Deepinv
 - Tqdm
-
-## License
-
-Please refer to the LICENSE file for terms of use.
+- Jupyter (for notebooks)

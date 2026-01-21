@@ -131,7 +131,7 @@ for m in m_values:
             indices,
             sparsity=s,
             tol=1e-4,
-            num_iters=200,
+            num_iters=100,
         )
 
         error = (trunc_error + torch.linalg.norm(coeffs_gt - coeffs_rec)).item()
